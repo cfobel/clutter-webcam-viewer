@@ -14,4 +14,5 @@ setup(name='clutter-webcam-viewer',
       author_email='christian@fobel.net',
       url='https://github.com/cfobel/clutter-webcam-viewer',
       license='LGPL-3.0',
+      install_requires=['pygtk3-helpers>=0.2'],
       packages=['clutter_webcam_viewer'])
