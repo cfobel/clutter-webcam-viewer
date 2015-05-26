@@ -101,10 +101,6 @@ if __name__ == "__main__":
     df_device = close_paths(get_svg_frame('90-pin channel mapping-opt.svg'))
 
     bbox = get_bounding_box(df_device)
-
-    df_device[['x', 'y']] += .5
-    bbox = get_bounding_box(df_device)
-
     df_paths = get_path_infos(df_device)
 
     stage.set_title("SVG paths as actors")
