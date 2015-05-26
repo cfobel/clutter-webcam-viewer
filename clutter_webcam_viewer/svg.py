@@ -55,13 +55,13 @@ class SvgActor(Clutter.Actor):
                                      Clutter.ScalingFilter.LINEAR)
 
     # resize the canvas whenever the actor changes size
-    self.connect("allocation-changed", self.on_actor_resize, canvas)
+    self.connect("allocation-changed", self.on_actor_resize)
 
     # connect our drawing code
     canvas.connect("draw", self.on_draw)
 
     # invalidate the canvas, so that we can draw before the main loop starts
-    Clutter.Content.invalidate(canvas)
+    self.idle_invalidate(canvas)
 
   @profile
   def on_draw(self, canvas, cr, width, height):
@@ -100,15 +100,18 @@ class SvgActor(Clutter.Actor):
     # we're done drawing
     return True
 
-  def invalidate_canvas(self, data):
-    Clutter.Content.invalidate(data)
+  def idle_invalidate(self, canvas=None):
+    if canvas is None:
+        canvas = self.get_content()
+    canvas.invalidate()
     return GLib.SOURCE_CONTINUE
 
   @profile
-  def idle_resize(self, actor, canvas):
-    width, height = actor.get_size()
+  def idle_resize(self):
+    width, height = self.get_size()
 
     # Match the canvas size to the actor's
+    canvas = self.get_content()
     canvas.set_size(math.ceil(width), math.ceil(height))
 
     # unset the guard
@@ -117,13 +120,12 @@ class SvgActor(Clutter.Actor):
     # remove the timeout
     return GLib.SOURCE_REMOVE
 
-  def on_actor_resize(self, actor, allocation, flags, canvas):
+  def on_actor_resize(self, actor, allocation, flags):
     # Throttle multiple actor allocations to one canvas resize we use a guard
     # variable to avoid queueing multiple resize operations.
     if self.idle_resize_id == 0:
-      self.idle_resize_id = Clutter.threads_add_timeout(GLib.PRIORITY_DEFAULT,
-                                                        1, self.idle_resize,
-                                                        actor, canvas)
+      self.idle_resize_id = Clutter.threads_add_idle(GLib.PRIORITY_DEFAULT,
+                                                     self.idle_resize)
 
 
 if __name__ == '__main__':

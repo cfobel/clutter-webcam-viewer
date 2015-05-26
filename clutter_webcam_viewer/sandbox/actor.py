@@ -114,7 +114,7 @@ if __name__ == "__main__":
 
     group = Clutter.Group()
     for ((path_id, df_i),
-         (path_id_j, info_i)) in itertools.izip(close_paths(df_device)
+         (path_id_j, info_i)) in itertools.izip(df_device
                                                 .groupby('path_id'),
                                                 df_paths.iterrows()):
         actor = PathActor(path_id, df_i)
