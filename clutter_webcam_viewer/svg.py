@@ -29,14 +29,15 @@ def scale_to_fit_a_in_b(a_shape, b_shape):
     return a_shape_normal.max() * b_shape.max() / a_shape.max()
 
 
-class SvgExample(object):
-
-  idle_resize_id = 0
-
+class SvgActor(Clutter.Actor):
   @profile
   def __init__(self, svg_path):
-    # initialize Clutter
-    Clutter.init([])
+    super(SvgActor, self).__init__()
+    self.df_device = close_paths(get_svg_frame(svg_path))
+
+    self.bbox = get_bounding_box(self.df_device)
+    self.df_paths = get_path_infos(self.df_device)
+    self.idle_resize_id = 0
 
     self.colors = {
       'white' : Clutter.Color.new(255, 255, 255, 255),
@@ -45,48 +46,22 @@ class SvgExample(object):
       'hand' : Clutter.Color.new(16, 32, 16, 196)
     }
 
-    # create a resizable stage
-    stage = Clutter.Stage.new()
-    stage.set_title("SVG to cairo")
-    stage.set_user_resizable(True)
-    stage.set_background_color(self.colors['blue'])
-    stage.set_size(300, 300)
-    stage.show()
-
     # our 2D canvas, courtesy of Cairo
     canvas = Clutter.Canvas.new()
-    canvas.set_size(300, 300)
+    canvas.set_size(*self.bbox[['width', 'height']])
 
-    self.df_device = close_paths(get_svg_frame(svg_path))
-
-    self.bbox = get_bounding_box(self.df_device)
-    self.df_paths = get_path_infos(self.df_device)
-
-    actor = Clutter.Actor.new()
-    actor.set_content(canvas)
-
-    actor.set_content_scaling_filters(Clutter.ScalingFilter.TRILINEAR,
-                                      Clutter.ScalingFilter.LINEAR)
-    stage.add_child(actor)
-
-    # bind the size of the actor to that of the stage
-    actor.add_constraint(Clutter.BindConstraint.new(stage, Clutter.BindCoordinate.SIZE, 0))
+    self.set_content(canvas)
+    self.set_content_scaling_filters(Clutter.ScalingFilter.TRILINEAR,
+                                     Clutter.ScalingFilter.LINEAR)
 
     # resize the canvas whenever the actor changes size
-    actor.connect("allocation-changed", self.on_actor_resize, canvas)
-
-    # quit on destroy
-    stage.connect("destroy", self.on_destroy)
+    self.connect("allocation-changed", self.on_actor_resize, canvas)
 
     # connect our drawing code
     canvas.connect("draw", self.on_draw)
 
     # invalidate the canvas, so that we can draw before the main loop starts
     Clutter.Content.invalidate(canvas)
-
-    ## set up a timer that invalidates the canvas every second
-    #Clutter.threads_add_timeout(GLib.PRIORITY_DEFAULT, 1000,
-                                #self.invalidate_canvas, canvas)
 
   @profile
   def on_draw(self, canvas, cr, width, height):
@@ -125,14 +100,14 @@ class SvgExample(object):
     # we're done drawing
     return True
 
-  @staticmethod
-  def invalidate_canvas(data):
+  def invalidate_canvas(self, data):
     Clutter.Content.invalidate(data)
     return GLib.SOURCE_CONTINUE
 
   @profile
   def idle_resize(self, actor, canvas):
     width, height = actor.get_size()
+
     # Match the canvas size to the actor's
     canvas.set_size(math.ceil(width), math.ceil(height))
 
@@ -150,10 +125,27 @@ class SvgExample(object):
                                                         1, self.idle_resize,
                                                         actor, canvas)
 
-  @staticmethod
-  def on_destroy(stage):
-    Clutter.main_quit()
 
+if __name__ == '__main__':
+    def on_destroy(stage):
+        Clutter.main_quit()
 
-SvgExample('90-pin channel mapping-opt.svg')
-Clutter.main()
+    Clutter.init([])
+    actor = SvgActor('90-pin channel mapping-opt.svg')
+
+    # create a resizable stage
+    stage = Clutter.Stage.new()
+    stage.set_title("SVG to cairo")
+    stage.set_user_resizable(True)
+    stage.set_background_color(actor.colors['blue'])
+    stage.set_size(480, 270)
+    stage.show()
+    stage.add_child(actor)
+    # quit on destroy
+    stage.connect("destroy", on_destroy)
+
+    ## bind the size of the actor to that of the stage
+    actor.add_constraint(Clutter.BindConstraint
+                         .new(stage, Clutter.BindCoordinate.SIZE, 0))
+    actor.set_opacity(.5 * 255)
+    Clutter.main()
