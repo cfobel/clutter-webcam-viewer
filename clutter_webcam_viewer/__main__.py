@@ -38,7 +38,7 @@ if __name__ == '__main__':
     while view.pipeline is None:
         time.sleep(.1)
 
-    GObject.idle_add(view.pipeline.set_state, Gst.State.PLAYING)
+    view.pipeline.set_state(Gst.State.PLAYING)
 
     view.texture.connect('button-press-event', view.on_button_press)
     view.texture.connect('button-release-event', view.on_button_release)
@@ -46,3 +46,5 @@ if __name__ == '__main__':
     view.texture.connect('motion-event', view.on_mouse_move)
     view.stage.connect('enter-event', view.on_enter)
     view.stage.connect('leave-event', view.on_exit)
+
+    raw_input()
