@@ -1,10 +1,15 @@
 import sys
-import itertools
 
 from gi.repository import Clutter, Cogl
 import pandas as pd
 from svg_model.data_frame import (get_svg_frame, close_paths, get_path_infos,
                                   get_bounding_box)
+
+
+try:
+    profile
+except NameError:
+    profile = lambda f: f
 
 
 class PathActor(Clutter.Actor):
@@ -25,6 +30,7 @@ class PathActor(Clutter.Actor):
         self.x, self.y = self.df_path.T.values
         Clutter.Actor.do_allocate(self, box, flags)
 
+    @profile
     def do_paint(self):
         ok, color = Clutter.Color.from_string(self.color)
 
@@ -33,6 +39,8 @@ class PathActor(Clutter.Actor):
         Cogl.Path.new()
         Cogl.set_source_color4ub(color.red, color.green, color.blue, tmp_alpha)
         self.draw_path()
+        Cogl.Path.fill_preserve()
+        Cogl.set_source_color4ub(color.red, color.green, color.blue, 255)
         Cogl.Path.stroke()
 
     def draw_path(self):
@@ -48,10 +56,41 @@ class PathActor(Clutter.Actor):
 
         Cogl.Path.new()
 
-        Cogl.set_source_color4ub(pick_color.red, pick_color.green, pick_color.blue, pick_color.alpha)
+        Cogl.set_source_color4ub(pick_color.red, pick_color.green,
+                                 pick_color.blue, pick_color.alpha)
         self.draw_path()
         Cogl.Path.fill()
 
+
+
+def aspect_fit(actor, allocation, flags, bbox):
+    actor_shape = pd.Series(allocation.get_size(), index=['width', 'height'])
+    actor_scale = .9 * scale_to_fit_a_in_b(bbox[['width', 'height']],
+                                           actor_shape)
+    actor.set_scale(actor_scale, actor_scale)
+    offset = .5 * actor_shape
+    actor.set_translation(offset.width, offset.height, 0)
+
+
+class SvgGroup(Clutter.Group):
+    def __init__(self, svg_path):
+        super(SvgGroup, self).__init__()
+        self.df_device = close_paths(get_svg_frame(svg_path))
+
+        self.bbox = get_bounding_box(self.df_device)
+        self.df_paths = get_path_infos(self.df_device)
+
+        for path_id, df_i in self.df_device.groupby('path_id'):
+            actor = PathActor(path_id, df_i)
+            actor.set_size(self.bbox.width, self.bbox.height)
+            actor.color = '#000000dd'
+            actor.connect("button-release-event",
+                          lambda actor, event: clicked_cb(actor))
+            #click_action = Clutter.ClickAction()
+            #click_action.connect("clicked", clicked_cb)
+            #actor.add_action(click_action)
+            self.add_actor(actor)
+        self.connect("allocation-changed", aspect_fit, self.bbox)
 
 def scale_to_fit_a_in_b(a_shape, b_shape):
     # Normalize the shapes to allow comparison.
@@ -67,8 +106,7 @@ def scale_to_fit_a_in_b(a_shape, b_shape):
     return a_shape_normal.max() * b_shape.max() / a_shape.max()
 
 
-def clicked_cb(self, actor):
-    print actor.path_id
+def clicked_cb(actor):
     opacity = actor.get_opacity()
     actor.set_opacity(100 if opacity > 100 else 255)
 
@@ -82,6 +120,7 @@ def parse_args(args=None):
 
     parser = ArgumentParser(description='Demonstrate drawing SVG on Clutter '
                             'stage')
+    parser.add_argument('svg_path')
     parser.add_argument('shape', nargs='?', default=None)
 
     args = parser.parse_args(args)
@@ -93,43 +132,20 @@ if __name__ == "__main__":
     print args
 
     Clutter.init()
+    Clutter.Settings().props.double_click_time = 100
     stage = Clutter.Stage()
     if args.shape is not None:
         width, height = map(int, args.shape.split('x'))
         stage.set_size(width, height)
 
-    df_device = close_paths(get_svg_frame('90-pin channel mapping-opt.svg'))
-
-    bbox = get_bounding_box(df_device)
-    df_paths = get_path_infos(df_device)
-
     stage.set_title("SVG paths as actors")
+    stage.set_user_resizable(True)
     stage.connect("destroy", lambda x: Clutter.main_quit())
 
-    actors = []
-    stage_shape = pd.Series(stage.get_allocation_box().get_size(),
-                            index=['width', 'height'])
-    actor_scale = .9 * scale_to_fit_a_in_b(bbox[['width', 'height']],
-                                           stage_shape)
+    group = SvgGroup(args.svg_path)
 
-    group = Clutter.Group()
-    for ((path_id, df_i),
-         (path_id_j, info_i)) in itertools.izip(df_device
-                                                .groupby('path_id'),
-                                                df_paths.iterrows()):
-        actor = PathActor(path_id, df_i)
-        actor.set_size(bbox.width, bbox.height)
-        actor.color = 'black'
-        click_action = Clutter.ClickAction()
-        click_action.connect("clicked", clicked_cb)
-        actor.add_action(click_action)
-        group.add_actor(actor)
-
-    group.set_scale(actor_scale, actor_scale)
-    offset = .5 * stage_shape
-    group.set_translation(offset.width, offset.height, 0)
-    group.set_opacity(100)
     stage.add_actor(group)
     stage.show_all()
-
+    group.add_constraint(Clutter.BindConstraint
+                         .new(stage, Clutter.BindCoordinate.SIZE, 0))
     Clutter.main()

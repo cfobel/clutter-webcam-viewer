@@ -128,12 +128,30 @@ class SvgActor(Clutter.Actor):
                                                      self.idle_resize)
 
 
+def parse_args(args=None):
+    """Parses arguments, returns (options, args)."""
+    import sys
+    from argparse import ArgumentParser
+
+    if args is None:
+        args = sys.argv[1:]
+
+    parser = ArgumentParser(description='Demonstrate SVG drawn to '
+                            'Clutter.Canvas')
+    parser.add_argument('svg_path')
+
+    args = parser.parse_args(args)
+    return args
+
+
 if __name__ == '__main__':
     def on_destroy(stage):
         Clutter.main_quit()
 
+    args = parse_args()
+
     Clutter.init([])
-    actor = SvgActor('90-pin channel mapping-opt.svg')
+    actor = SvgActor(args.svg_path)
 
     # create a resizable stage
     stage = Clutter.Stage.new()

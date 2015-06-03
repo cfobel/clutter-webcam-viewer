@@ -4,7 +4,8 @@ from threading import Thread
 from gi.repository import GObject, Gst, Gdk, GstVideo
 from gi.repository import GtkClutter, ClutterGst, Clutter
 
-from .svg import SvgActor
+#from .svg import SvgActor
+from .sandbox.actor import SvgGroup
 from . import View
 
 
@@ -43,7 +44,8 @@ if __name__ == '__main__':
     view.pipeline.set_state(Gst.State.PLAYING)
 
     def add_svg(view, svg_path):
-        actor = SvgActor(svg_path)
+        #actor = SvgActor(svg_path)
+        actor = SvgGroup(svg_path)
         view.stage.add_actor(actor)
         actor.add_constraint(Clutter.BindConstraint
                              .new(view.stage, Clutter.BindCoordinate.SIZE, 0))
