@@ -4,8 +4,7 @@ from threading import Thread
 from gi.repository import GObject, Gst, Gdk, GstVideo
 from gi.repository import GtkClutter, ClutterGst, Clutter
 
-#from .svg import SvgActor
-from .sandbox.actor import SvgGroup
+from .svg import SvgGroup
 from . import View
 
 
@@ -20,6 +19,7 @@ def parse_args(args=None):
     parser = ArgumentParser(description='Demonstrate Clutter GStreamer')
     parser.add_argument('-d', '--device', default=None)
     parser.add_argument('-s', '--svg-path', default=None)
+    parser.add_argument('-p', '--dmf-device-uri')
 
     args = parser.parse_args()
     return args
@@ -44,8 +44,16 @@ if __name__ == '__main__':
     view.pipeline.set_state(Gst.State.PLAYING)
 
     def add_svg(view, svg_path):
-        #actor = SvgActor(svg_path)
-        actor = SvgGroup(svg_path)
+        actor = SvgGroup.from_path(svg_path)
+        view.stage.add_actor(actor)
+        actor.add_constraint(Clutter.BindConstraint
+                             .new(view.stage, Clutter.BindCoordinate.SIZE, 0))
+        actor.set_opacity(.5 * 255)
+
+    def add_dmf_device(view, uri):
+        from .dmf import DmfActor
+
+        actor = DmfActor(uri)
         view.stage.add_actor(actor)
         actor.add_constraint(Clutter.BindConstraint
                              .new(view.stage, Clutter.BindCoordinate.SIZE, 0))
@@ -53,6 +61,8 @@ if __name__ == '__main__':
 
     if args.svg_path is not None:
         GObject.idle_add(add_svg, view, args.svg_path)
+    elif args.dmf_device_uri is not None:
+        GObject.idle_add(add_dmf_device, view, args.dmf_device_uri)
 
     view.texture.connect('button-press-event', view.on_button_press)
     view.texture.connect('button-release-event', view.on_button_release)

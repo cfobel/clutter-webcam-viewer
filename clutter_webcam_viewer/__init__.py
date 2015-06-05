@@ -51,7 +51,7 @@ class View(SlaveView):
 
         self.stage = self.clutter.get_stage()
         self.texture = Clutter.Texture.new()
-        self.texture.connect('size-change', self.on_size_change)
+        self.texture.connect('allocation-changed', self.on_size_change)
 
         # Create GStreamer pipeline
         self.pipeline = Gst.Pipeline()
