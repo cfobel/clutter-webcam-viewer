@@ -35,28 +35,5 @@ class PipelineActor(Clutter.Group):
         #self.add_constraint(Clutter.BindConstraint
                             #.new(self.texture, Clutter.BindCoordinate.SIZE, 0))
 
-        # Create GStreamer pipeline
-        self.pipeline = Gst.Pipeline()
-
-        # Create bus to get events from GStreamer pipeline
-        self.bus = self.pipeline.get_bus()
-
-        if self.device is None:
-            self.src = Gst.ElementFactory.make('autovideosrc', None)
-        else:
-            self.src = Gst.ElementFactory.make('v4l2src', 'source')
-            self.src.set_property('device', self.device)
-        self.sink = ClutterGst.VideoSink.new(self.texture)
-        self.sink.set_property('sync', True)
-        self.sink.set_property('qos', True)
-
-        # Add elements to the pipeline
-        self.pipeline.add(self.src)
-        self.pipeline.add(self.sink)
-
-        self.src.link_filtered(self.sink,
-                               Gst.Caps.from_string('video/x-raw, '
-                                                    'format=(string)I420'))
-
     def on_size_change(self, texture, width, height):
         self.set_size(width, height)

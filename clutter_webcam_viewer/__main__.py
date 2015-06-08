@@ -1,11 +1,8 @@
-import time
 from threading import Thread
 
-from gi.repository import GObject, Gst, Gdk, GstVideo
-from gi.repository import GtkClutter, ClutterGst, Clutter
-
+from gi.repository import Clutter, GLib, Gst
 from .svg import SvgGroup
-from . import View
+from . import RecordView
 
 
 def parse_args(args=None):
@@ -16,39 +13,39 @@ def parse_args(args=None):
     if args is None:
         args = sys.argv
 
-    parser = ArgumentParser(description='Demonstrate Clutter GStreamer')
-    parser.add_argument('-d', '--device', default=None)
+    parser = ArgumentParser(description='Demonstrate GTK3 Clutter')
     parser.add_argument('-s', '--svg-path', default=None)
-    parser.add_argument('-p', '--dmf-device-uri')
+    parser.add_argument('-u', '--dmf-device-uri')
+    parser.add_argument('-i', '--interactive', action='store_true',
+                        help='Run UI in background thread (useful for '
+                        'running, e.g., from IPython).')
 
     args = parser.parse_args()
     return args
 
 
-if __name__ == '__main__':
-    '''
-    Demonstrate drag'n'drop webcam feed using Clutter stage.
-    '''
-    args = parse_args()
-    GObject.threads_init()
-    Gst.init(None)
+def main(args):
+    Gst.init()
+    record_view = RecordView()
 
-    view = View(args.device)
-    gui_thread = Thread(target=view.show_and_run)
-    gui_thread.daemon = True
-    gui_thread.start()
+    if args.interactive:
+        gui_thread = Thread(target=record_view.show_and_run)
+        gui_thread.daemon = True
+        gui_thread.start()
+    else:
+        record_view.show()
 
-    while view.pipeline is None:
+    while record_view.video_view is None:
         time.sleep(.1)
+        print 'waiting for GUI'
 
-    view.pipeline.set_state(Gst.State.PLAYING)
+    view = record_view.video_view
 
     def add_svg(view, svg_path):
         actor = SvgGroup.from_path(svg_path)
         view.stage.add_actor(actor)
         actor.add_constraint(Clutter.BindConstraint
                              .new(view.stage, Clutter.BindCoordinate.SIZE, 0))
-        actor.set_opacity(.5 * 255)
 
     def add_dmf_device(view, uri):
         from .dmf import DmfActor
@@ -56,19 +53,29 @@ if __name__ == '__main__':
         actor = DmfActor(uri)
         view.stage.add_actor(actor)
         actor.add_constraint(Clutter.BindConstraint
-                             .new(view.stage, Clutter.BindCoordinate.SIZE, 0))
+                             .new(view.stage, Clutter.BindCoordinate.SIZE, 1))
         actor.set_opacity(.5 * 255)
 
     if args.svg_path is not None:
-        GObject.idle_add(add_svg, view, args.svg_path)
+        Clutter.threads_add_idle(GLib.PRIORITY_DEFAULT, add_svg, view,
+                                 args.svg_path)
     elif args.dmf_device_uri is not None:
-        GObject.idle_add(add_dmf_device, view, args.dmf_device_uri)
+        Clutter.threads_add_idle(GLib.PRIORITY_DEFAULT, add_dmf_device, view,
+                                 args.dmf_device_uri)
 
-    view.texture.connect('button-press-event', view.on_button_press)
-    view.texture.connect('button-release-event', view.on_button_release)
-    view.texture.connect('button-release-event', view.change_bg)
-    view.texture.connect('motion-event', view.on_mouse_move)
-    view.stage.connect('enter-event', view.on_enter)
-    view.stage.connect('leave-event', view.on_exit)
+    if args.interactive:
+        raw_input()
+    else:
+        record_view.show_and_run()
 
-    raw_input()
+    return record_view
+
+
+if __name__ == '__main__':
+    '''
+    Demonstrate drag'n'drop webcam feed using Clutter stage.
+    '''
+    import time
+
+    args = parse_args()
+    result = main(args)
