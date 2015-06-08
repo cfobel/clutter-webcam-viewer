@@ -4,6 +4,7 @@ from webcam_recorder.caps import get_device_configs
 from webcam_recorder.video_view import RecordControl
 from .pipeline import PipelineActor
 from .warp import WarpActor
+from .warp_control import WarpControl
 from .pipeline_manager import PipelineManager
 
 
@@ -55,14 +56,16 @@ class RecordView(SlaveView):
         self.video_view = ClutterView()
         self.video_view.show()
         self.add_pipeline_actor()
-        for slave in (self.record_control, self.video_view):
+        self.warp_control = WarpControl(self.warp_actor)
+        for slave in (self.record_control, self.warp_control, self.video_view):
             slave.show()
             self.add_slave(slave)
         self.record_control.on_changed = self.on_options_changed
 
-        # Pack load and save sections to end of row.
-        self.widget.set_child_packing(self.record_control.widget, False, False,
-                                      0, Gtk.PackType.START)
+        for slave in (self.record_control, self.warp_control):
+            # Do not expand record or warp rows.
+            self.widget.set_child_packing(slave.widget, False, False, 0,
+                                          Gtk.PackType.START)
 
         Clutter.threads_add_timeout(GLib.PRIORITY_DEFAULT, 1000,
                                     self.refresh_config)
