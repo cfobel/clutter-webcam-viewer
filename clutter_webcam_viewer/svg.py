@@ -13,6 +13,17 @@ except NameError:
 
 
 class PathActor(Clutter.Actor):
+    '''
+    Actor to draw a simple polygon path (no holes or arcs).
+
+    TODO
+    ====
+
+     - Improve performance by painting to texture and repainting only when
+       color or path changes.
+     - Add support for attributes other than color (e.g., edge/stroke color,
+       alpha, etc.).
+    '''
     def __init__(self, path_id, df_path):
         super(PathActor, self).__init__()
 

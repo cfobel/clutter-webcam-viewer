@@ -3,11 +3,18 @@ from pygtk3_helpers.delegates import SlaveView
 
 
 class WarpControl(SlaveView):
+    '''
+    A slave view containing UI elements (buttons, etc.) for rotating, flipping,
+    saving, and loading warp perspective projection settings.
+    '''
     def __init__(self, warp_actor):
         super(WarpControl, self).__init__()
         self.warp_actor = warp_actor
 
     def create_ui(self):
+        '''
+        Create UI elements and connect signals.
+        '''
         box = Gtk.Box()
         rotate_left = Gtk.Button('Rotate left')
         rotate_right = Gtk.Button('Rotate right')
@@ -30,17 +37,29 @@ class WarpControl(SlaveView):
         self.widget.pack_start(box, False, False, 0)
 
     def rotate_left(self):
+        '''
+        Rotate projection 90 degrees to the left.
+        '''
         Clutter.threads_add_idle(GLib.PRIORITY_DEFAULT, self.warp_actor.rotate,
                                  -1)
 
     def rotate_right(self):
+        '''
+        Rotate projection 90 degrees to the right.
+        '''
         Clutter.threads_add_idle(GLib.PRIORITY_DEFAULT, self.warp_actor.rotate,
                                  1)
 
     def flip_horizontal(self):
+        '''
+        Flip the projection horizontally.
+        '''
         Clutter.threads_add_idle(GLib.PRIORITY_DEFAULT,
                                  self.warp_actor.flip_horizontal)
 
     def flip_vertical(self):
+        '''
+        Flip the projection vertically.
+        '''
         Clutter.threads_add_idle(GLib.PRIORITY_DEFAULT,
                                  self.warp_actor.flip_vertical)

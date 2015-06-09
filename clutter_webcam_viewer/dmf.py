@@ -1,12 +1,31 @@
 from gi.repository import Clutter, GLib
 from svg_model.data_frame import (close_paths, get_path_infos,
                                   get_bounding_box)
-from .svg import PathActor, aspect_fit, SvgGroup
+from .svg import PathActor, aspect_fit
 import zmq
 import pandas as pd
 
 
 class DmfDevice(object):
+    '''
+    Connect to Microdrop DMF device controller plugin and provide bidirectional
+    updates for channel states.
+
+    Three ZeroMQ socket connections are used:
+
+     - `REQ`: Synchronous request/response (e.g., initial channel states).
+     - `PUSH`: Asynchronous notification of change in local states.
+     - `SUB`: Asynchronous notification of remote change in channel states.
+
+    TODO
+    ====
+
+     - Parse hostname from `uri` (which is used for the `REQ` socket) and use
+       host for setting up the `PUSH` and `SUB` sockets.  Currently, the `PUSH`
+       and `SUB` sockets use `localhost`.
+     - Periodically request a full synchronization of channel states from DMF
+       device controller.
+    '''
     def __init__(self, uri):
         self.uri = uri
         self.ctx = zmq.Context.instance()
@@ -20,14 +39,26 @@ class DmfDevice(object):
         self.sub.setsockopt(zmq.SUBSCRIBE, '')
 
     def toggle_channels(self, channels):
+        '''
+        Toggle the state of the specified channels.
+        '''
         self.channel_states[channels] = ~self.channel_states[channels]
 
     def sync_states(self):
+        '''
+        Request state of all channels from DMF device controller and update
+        local state.
+        '''
         channel_states = self._command('sync')
         self.channel_states = pd.Series(channel_states, dtype=bool)
         self.channel_states.index.name = 'channel'
 
     def _command(self, cmd):
+        '''
+        Send a request to the DMF device controller response socket.
+
+        This is used, for example, to request initial channel states.
+        '''
         req = zmq.Socket(self.ctx, zmq.REQ)
         req.connect(self.uri)
         req.send_pyobj({'command': cmd})
@@ -39,12 +70,21 @@ class DmfDevice(object):
         return response['result']
 
     def push_channel_states(self):
+        '''
+        Notify DMF device controller of the local channel states.
+        '''
         ctx = zmq.Context.instance()
         push = zmq.Socket(ctx, zmq.PUSH)
         push.connect('tcp://localhost:%s' % self.ports.pull)
         push.send_pyobj(self.channel_states)
 
     def spin(self, timeout=zmq.NOBLOCK):
+        '''
+        Check for any channel state updates on the local subscription socket.
+
+        __NB__ The Microdrop DMF device controller plugin publishes all channel
+        state changes.
+        '''
         updated = False
         while self.sub.poll(timeout):
             updated = True
@@ -56,6 +96,11 @@ class DmfDevice(object):
 
 
 class DmfActor(Clutter.Group):
+    '''
+    Draw the device associated with a remote Microdrop DMF device controller
+    instance.  Update the color of each electrode according to corresponding
+    actuation state.
+    '''
     def __init__(self, uri):
         super(DmfActor, self).__init__()
         self.device = DmfDevice(uri)
@@ -76,17 +121,30 @@ class DmfActor(Clutter.Group):
                                     self.refresh_channels)
 
     def refresh_channels(self, timeout=zmq.NOBLOCK):
+        '''
+        Check for incoming channel state updates on subscription socket and
+        update the UI accordingly.
+        '''
         if self.device.spin(timeout):
             self.update_ui()
         return True
 
     def update_ui(self):
+        '''
+        Update the UI attributes of the each electrode actor based on the on
+        corresponding channel state.
+        '''
         for p in self.get_children():
             channels = self.device.electrode_channels.ix[p.path_id]
             actuated = self.device.channel_states[channels].any()
-            p.color = '#FFFFFF' if actuated else '#000000'
+            p.color = (self.actuated_color if actuated else
+                       self.non_actuated_color)
 
     def clicked_cb(self, actor, event):
+        '''
+        Toggle the state of the channels corresponding to the electrode that
+        was clicked.
+        '''
         channels = self.device.electrode_channels.ix[actor.path_id]
         self.device.toggle_channels(channels)
         self.update_ui()
