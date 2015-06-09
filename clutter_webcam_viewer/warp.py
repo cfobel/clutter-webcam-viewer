@@ -1,8 +1,7 @@
 import pandas as pd
 import numpy as np
 from gi.repository import Clutter, GLib
-from opencv_helpers import (get_map_array, find_homography_array,
-                            cvwarp_mat_to_4x4)
+from opencv_helpers import find_homography_array, cvwarp_mat_to_4x4
 import cogl_helpers as ch
 
 
@@ -32,6 +31,8 @@ class WarpActor(Clutter.Group):
         self.actor.connect('motion-event', self.on_mouse_move)
         self._enter_coords = None
         self._exit_coords = None
+        self.parent_corners = None
+        self.child_corners = None
 
     def on_allocation_changed(self, warp_actor, allocation, flags, actor):
         bbox = bounding_box_from_allocation(self.actor
@@ -130,3 +131,36 @@ class WarpActor(Clutter.Group):
         return pd.DataFrame([[v.x, v.y] for v in
                              self.actor.get_abs_allocation_vertices()],
                             columns=['x', 'y'])
+
+    def save(self, warp_path):
+        # Parent allocation
+        parent_bbox = \
+            bounding_box_from_allocation(self.get_allocation_geometry())
+        # Child allocation
+        child_bbox = \
+            bounding_box_from_allocation(self.actor.get_allocation_geometry())
+        common_settings = dict(format='table', data_columns=True,
+                               complib='zlib', complevel=6)
+        parent_bbox.to_hdf(str(warp_path), '/shape/parent', **common_settings)
+        child_bbox.to_hdf(str(warp_path), '/shape/child', **common_settings)
+        self.parent_corners.to_hdf(str(warp_path), '/corners/parent',
+                                   **common_settings)
+        self.child_corners.to_hdf(str(warp_path), '/corners/child',
+                                  **common_settings)
+
+    def load(self, warp_path):
+        warp_path = str(warp_path)
+        try:
+            parent_corners = pd.read_hdf(warp_path, '/corners/parent')
+            child_corners = pd.read_hdf(warp_path, '/corners/child')
+            self.parent_corners[:] = parent_corners
+            self.child_corners[:] = child_corners
+        except Exception:
+            pass
+        else:
+            Clutter.threads_add_idle(GLib.PRIORITY_DEFAULT,
+                                     self.update_transform)
+
+    def reset(self):
+        self._button_down = False
+        self.fit_child_to_parent()
