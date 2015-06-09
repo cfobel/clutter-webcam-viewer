@@ -1,6 +1,6 @@
 import sys
 
-from gi.repository import Clutter, Cogl
+from gi.repository import Clutter, Cogl, GLib
 import pandas as pd
 from svg_model.data_frame import (get_svg_frame, close_paths, get_path_infos,
                                   get_bounding_box)
@@ -32,7 +32,7 @@ class PathActor(Clutter.Actor):
         self.df_path = df_path[['x', 'y']].copy()
 
         # set default color to black
-        self.color = '#000'
+        self._color = '#000'
         self.shape = pd.Series([0, 0], index=['width', 'height'])
 
     def do_allocate(self, box, flags):
@@ -41,9 +41,18 @@ class PathActor(Clutter.Actor):
         self.x, self.y = self.df_path.T.values
         Clutter.Actor.do_allocate(self, box, flags)
 
+    @property
+    def color(self):
+        return self._color
+
+    @color.setter
+    def color(self, value):
+        self._color = value
+        Clutter.threads_add_idle(GLib.PRIORITY_HIGH, self.queue_redraw)
+
     @profile
     def do_paint(self):
-        ok, color = Clutter.Color.from_string(self.color)
+        ok, color = Clutter.Color.from_string(self._color)
 
         tmp_alpha = self.get_paint_opacity() * color.alpha / 255
 
