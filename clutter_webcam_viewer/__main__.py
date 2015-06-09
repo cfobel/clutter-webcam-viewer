@@ -15,7 +15,6 @@ def parse_args(args=None):
 
     parser = ArgumentParser(description='Demonstrate GTK3 Clutter')
     parser.add_argument('-s', '--svg-path', default=None)
-    parser.add_argument('-u', '--dmf-device-uri')
     parser.add_argument('-i', '--interactive', action='store_true',
                         help='Run UI in background thread (useful for '
                         'running, e.g., from IPython).')
@@ -47,21 +46,9 @@ def main(args):
         actor.add_constraint(Clutter.BindConstraint
                              .new(view.stage, Clutter.BindCoordinate.SIZE, 0))
 
-    def add_dmf_device(view, uri):
-        from .dmf import DmfActor
-
-        actor = DmfActor(uri)
-        view.stage.add_actor(actor)
-        actor.add_constraint(Clutter.BindConstraint
-                             .new(view.stage, Clutter.BindCoordinate.SIZE, 1))
-        actor.set_opacity(.5 * 255)
-
     if args.svg_path is not None:
         Clutter.threads_add_idle(GLib.PRIORITY_DEFAULT, add_svg, view,
                                  args.svg_path)
-    elif args.dmf_device_uri is not None:
-        Clutter.threads_add_idle(GLib.PRIORITY_DEFAULT, add_dmf_device, view,
-                                 args.dmf_device_uri)
 
     if args.interactive:
         raw_input()
