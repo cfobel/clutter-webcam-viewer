@@ -101,8 +101,11 @@ class DmfActor(Clutter.Group):
     instance.  Update the color of each electrode according to corresponding
     actuation state.
     '''
-    def __init__(self, uri):
+    def __init__(self, uri, actuated_color='#ffffff',
+                 non_actuated_color='#000000'):
         super(DmfActor, self).__init__()
+        self.actuated_color = actuated_color
+        self.non_actuated_color = non_actuated_color
         self.device = DmfDevice(uri)
 
         self.df_device = close_paths(self.device.df_svg)
@@ -112,7 +115,7 @@ class DmfActor(Clutter.Group):
         for path_id, df_i in self.df_device.groupby('path_id'):
             actor = PathActor(path_id, df_i)
             actor.set_size(self.bbox.width, self.bbox.height)
-            actor.color = '#000000'
+            actor.color = non_actuated_color
             actor.connect("button-release-event", self.clicked_cb)
             self.add_actor(actor)
         self.connect("allocation-changed", aspect_fit, self.bbox)
