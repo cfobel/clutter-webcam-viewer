@@ -17,7 +17,8 @@ class ClutterView(SlaveView):
         self.clutter.set_size_request(420, 280)
 
         self.stage = self.clutter.get_stage()
-        self.stage.color = '#ffffff'
+        self.stage.set_background_color(Clutter.Color
+                                        .from_string('#8c8c8c')[1])
         self.stage.show_all()
 
         self.widget.add(self.clutter)
