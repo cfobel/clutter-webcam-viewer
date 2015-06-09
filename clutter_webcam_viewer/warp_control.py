@@ -1,5 +1,6 @@
-from gi.repository import Gtk, Clutter, GLib
+from gi.repository import Gtk, Clutter, GLib, GObject
 from pygtk3_helpers.delegates import SlaveView
+import pygtk3_helpers.ui.dialog as pu
 
 
 class WarpControl(SlaveView):
@@ -20,6 +21,7 @@ class WarpControl(SlaveView):
         rotate_right = Gtk.Button('Rotate right')
         flip_horizontal = Gtk.Button('Flip horizontal')
         flip_vertical = Gtk.Button('Flip vertical')
+        reset = Gtk.Button('Reset')
         load = Gtk.Button('Load...')
         save = Gtk.Button('Save...')
 
@@ -28,13 +30,45 @@ class WarpControl(SlaveView):
         flip_horizontal.connect('clicked', lambda *args:
                                 self.flip_horizontal())
         flip_vertical.connect('clicked', lambda *args: self.flip_vertical())
+        reset.connect('clicked', lambda *args: self.reset())
+        load.connect('clicked', lambda *args: GObject.idle_add(self.load))
+        save.connect('clicked', lambda *args: GObject.idle_add(self.save))
 
         for b in (rotate_left, rotate_right, flip_horizontal, flip_vertical,
-                  load, save):
+                  reset, load, save):
             box.pack_start(b, False, False, 0)
 
         box.show_all()
         self.widget.pack_start(box, False, False, 0)
+
+        if self.warp_actor.parent_corners is None:
+            for b in (rotate_left, rotate_right, flip_horizontal,
+                      flip_vertical, reset, load, save):
+                b.set_sensitive(False)
+            def check_init():
+                if self.warp_actor.parent_corners is not None:
+                    for b in (rotate_left, rotate_right, flip_horizontal,
+                              flip_vertical, reset, load, save):
+                        b.set_sensitive(True)
+                    return False
+                return True
+            GObject.timeout_add(100, check_init)
+
+    def save(self):
+        '''
+        Save warp projection settings to HDF file.
+        '''
+        response = pu.open(title='Save perspective warp', patterns=['*.h5'])
+        if response is not None:
+            self.warp_actor.save(response)
+
+    def load(self):
+        '''
+        Load warp projection settings from HDF file.
+        '''
+        response = pu.open(title='Load perspective warp', patterns=['*.h5'])
+        if response is not None:
+            self.warp_actor.load(response)
 
     def rotate_left(self):
         '''
@@ -63,3 +97,9 @@ class WarpControl(SlaveView):
         '''
         Clutter.threads_add_idle(GLib.PRIORITY_DEFAULT,
                                  self.warp_actor.flip_vertical)
+
+    def reset(self):
+        '''
+        Reset the warp projection.
+        '''
+        Clutter.threads_add_idle(GLib.PRIORITY_DEFAULT, self.warp_actor.reset)
